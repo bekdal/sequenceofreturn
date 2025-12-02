@@ -1,265 +1,501 @@
-<script type="text/babel">
-    // Error Boundary
-    class ErrorBoundary extends React.Component {
-        constructor(props) {
-            super(props);
-            this.state = { hasError: false, error: null };
-        }
-        
-        static getDerivedStateFromError(error) {
-            return { hasError: true, error };
-        }
-        
-        componentDidCatch(error, errorInfo) {
-            console.error('Component Error:', error, errorInfo);
-        }
-        
-        render() {
-            if (this.state.hasError) {
-                return (
-                    <div className="p-8 bg-red-50 border border-red-200 rounded-lg m-4">
-                        <h2 className="text-xl font-bold text-red-800 mb-2">Component Error</h2>
-                        <p className="text-red-600 mb-4">{this.state.error?.toString()}</p>
-                        <button 
-                            onClick={() => this.setState({ hasError: false })}
-                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                        >
-                            Try Again
-                        </button>
-                    </div>
-                );
-            }
-            return this.props.children;
-        }
-    }
-
-    // Import React hooks
-    const { useState, useEffect } = React;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sequencing Risk Calculator</title>
     
-    // Get Recharts safely
-    let RechartsLib = window.Recharts || {};
-    const { 
-        LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
-        ResponsiveContainer, ReferenceLine, Area, ComposedChart 
-    } = RechartsLib;
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM (Core Libraries) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Recharts (Charting Library) -->
+    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+    
+    <!-- Babel (Compiles JSX in the browser) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    // --- Simple Icons ---
-    const CalculatorIcon = () => (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/></svg>
-    );
+    <style>
+        body {
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-    // --- Utility Functions ---
-    const formatCurrency = (value) => {
-        if (!value && value !== 0) return '$0';
-        return new Intl.NumberFormat('en-US', {
+    <script type="text/babel">
+        // --- Imports / Destructuring from Globals ---
+        // Since we are not using a build tool, we access these from the window object
+        const { useState, useEffect } = React;
+        const { 
+            LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
+            ResponsiveContainer, ReferenceLine, Area, ComposedChart 
+        } = Recharts;
+
+        // --- Icons (Inline SVGs to avoid dependency complexity) ---
+        const CalculatorIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+        );
+        const RefreshCwIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        );
+        const TrendingDownIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
+        );
+        const TrendingUpIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        );
+        const InfoIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        );
+        const ClockIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        );
+
+        // --- Utility Functions ---
+        // Box-Muller transform for Gaussian random numbers
+        const boxMullerRandom = () => {
+          let u = 0, v = 0;
+          while (u === 0) u = Math.random();
+          while (v === 0) v = Math.random();
+          return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        };
+
+        const formatCurrency = (value) => {
+          return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
-            maximumFractionDigits: 0
-        }).format(value);
-    };
+            maximumFractionDigits: 0,
+            notation: value > 1000000 ? 'compact' : 'standard'
+          }).format(value);
+        };
 
-    // --- SIMPLIFIED APP COMPONENT ---
-    function SimpleSequencingCalculator() {
-        const [inputs, setInputs] = useState({
+        const formatPercent = (value) => `${(value).toFixed(1)}%`;
+
+        // --- Main Application Component ---
+        function App() {
+          const [inputs, setInputs] = useState({
             initialBalance: 1000000,
             annualWithdrawal: 40000,
-            expectedReturn: 7.0,
-            volatility: 15.0,
+            expectedReturn: 7.0, // Geometric Mean
+            volatility: 15.0, // Standard Deviation
             years: 30,
-            inflation: 3.0
-        });
+            inflation: 3.0,
+            numSimulations: 500,
+            withdrawalTiming: 'end' // 'start' or 'end'
+          });
 
-        const [results, setResults] = useState(null);
-        const [loading, setLoading] = useState(false);
+          const [results, setResults] = useState(null);
+          const [isSimulating, setIsSimulating] = useState(false);
 
-        // Simple simulation
-        const runSimulation = () => {
-            setLoading(true);
-            setTimeout(() => {
-                const { initialBalance, annualWithdrawal, years } = inputs;
-                
-                // Simple calculation (not Monte Carlo for now)
-                let balance = initialBalance;
-                const annualRate = inputs.expectedReturn / 100;
-                
-                for (let year = 1; year <= years; year++) {
-                    balance = balance * (1 + annualRate) - annualWithdrawal;
-                    if (balance < 0) balance = 0;
-                }
-                
-                setResults({
-                    endingBalance: Math.round(balance),
-                    successRate: balance > 0 ? 100 : 0
-                });
-                setLoading(false);
-            }, 500);
-        };
-
-        // Run on mount
-        useEffect(() => {
+          // Run simulation automatically on page load
+          useEffect(() => {
             runSimulation();
-        }, []);
+          }, []);
 
-        const handleInputChange = (e) => {
+          const runSimulation = () => {
+            setIsSimulating(true);
+            
+            // Timeout allows the UI to render the loading state before the heavy calculation locks the thread
+            setTimeout(() => {
+              const { initialBalance, annualWithdrawal, expectedReturn, volatility, years, inflation, numSimulations, withdrawalTiming } = inputs;
+              
+              const mean = expectedReturn / 100;
+              const stdDev = volatility / 100;
+              const inflationRate = inflation / 100;
+
+              let failures = 0;
+              const allPaths = [];
+              const finalBalances = [];
+
+              // Run N scenarios
+              for (let sim = 0; sim < numSimulations; sim++) {
+                let currentBalance = initialBalance;
+                let currentWithdrawal = annualWithdrawal; 
+                let path = [{ year: 0, balance: currentBalance }];
+                let failed = false;
+
+                for (let year = 1; year <= years; year++) {
+                  // Generate random return for this year
+                  const randomShock = boxMullerRandom();
+                  const yearReturn = mean + (stdDev * randomShock);
+                  
+                  if (withdrawalTiming === 'start') {
+                    // Start of Year: Withdraw first, then grow the remainder
+                    currentBalance -= currentWithdrawal;
+                    if (currentBalance < 0) currentBalance = 0;
+                    currentBalance = currentBalance * (1 + yearReturn);
+                  } else {
+                    // End of Year: Grow first, then withdraw
+                    currentBalance = currentBalance * (1 + yearReturn);
+                    currentBalance -= currentWithdrawal;
+                  }
+
+                  // Check for failure (running out of money)
+                  if (currentBalance <= 0) {
+                    currentBalance = 0;
+                    if (!failed) {
+                      failures++;
+                      failed = true;
+                    }
+                  }
+
+                  path.push({ year, balance: Math.round(currentBalance) });
+                  
+                  // Inflate the withdrawal for the NEXT year
+                  currentWithdrawal = currentWithdrawal * (1 + inflationRate);
+                }
+                allPaths.push(path);
+                finalBalances.push(currentBalance);
+              }
+
+              // Calculate Percentiles & Merge Sample Paths for the Chart
+              const chartData = [];
+              
+              for (let year = 0; year <= years; year++) {
+                const balancesAtYear = allPaths.map(p => p[year].balance).sort((a, b) => a - b);
+                
+                const dataPoint = {
+                  year,
+                  p10: balancesAtYear[Math.floor(numSimulations * 0.1)],
+                  p25: balancesAtYear[Math.floor(numSimulations * 0.25)],
+                  median: balancesAtYear[Math.floor(numSimulations * 0.5)],
+                  p75: balancesAtYear[Math.floor(numSimulations * 0.75)],
+                  p90: balancesAtYear[Math.floor(numSimulations * 0.9)],
+                };
+
+                // Add individual spaghetti lines (first 25 simulations)
+                for(let i = 0; i < 25; i++) {
+                   if(allPaths[i] && allPaths[i][year]) {
+                       dataPoint[`sim${i}`] = allPaths[i][year].balance;
+                   }
+                }
+
+                chartData.push(dataPoint);
+              }
+
+              setResults({
+                failures,
+                totalSimulations: numSimulations,
+                successRate: ((numSimulations - failures) / numSimulations) * 100,
+                medianEndingBalance: finalBalances.sort((a, b) => a - b)[Math.floor(numSimulations * 0.5)],
+                chartData,
+                worstCase: chartData[chartData.length-1].p10,
+                bestCase: chartData[chartData.length-1].p90
+              });
+              
+              setIsSimulating(false);
+            }, 100);
+          };
+
+          const handleInputChange = (e) => {
             const { name, value } = e.target;
             setInputs(prev => ({
-                ...prev,
-                [name]: parseFloat(value) || 0
+              ...prev,
+              [name]: parseFloat(value) || 0
             }));
-        };
+          };
 
-        return (
-            <div className="min-h-screen bg-slate-50 p-4 md:p-8">
-                <div className="max-w-7xl mx-auto">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-3 bg-blue-600 rounded-lg">
-                                <CalculatorIcon />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-bold text-slate-800">Sequencing Risk Calculator</h1>
-                                <p className="text-slate-500">Simplified Version - Working!</p>
-                            </div>
-                        </div>
+          const handleTimingChange = (e) => {
+            setInputs(prev => ({
+              ...prev,
+              withdrawalTiming: e.target.value
+            }));
+          };
+
+          return (
+            <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 md:p-8">
+              <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Header */}
+                <div className="lg:col-span-12 mb-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-3 bg-blue-600 rounded-lg shadow-lg">
+                      <CalculatorIcon className="w-8 h-8 text-white" />
                     </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        {/* Input Panel */}
-                        <div className="lg:col-span-4">
-                            <div className="bg-white rounded-xl shadow p-6">
-                                <h2 className="text-lg font-semibold mb-4">Input Parameters</h2>
-                                
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Starting Balance</label>
-                                        <input
-                                            type="number"
-                                            name="initialBalance"
-                                            value={inputs.initialBalance}
-                                            onChange={handleInputChange}
-                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                                        />
-                                    </div>
-                                    
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Annual Withdrawal</label>
-                                        <input
-                                            type="number"
-                                            name="annualWithdrawal"
-                                            value={inputs.annualWithdrawal}
-                                            onChange={handleInputChange}
-                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                                        />
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Return (%)</label>
-                                            <input
-                                                type="number"
-                                                name="expectedReturn"
-                                                value={inputs.expectedReturn}
-                                                onChange={handleInputChange}
-                                                className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Years</label>
-                                            <input
-                                                type="number"
-                                                name="years"
-                                                value={inputs.years}
-                                                onChange={handleInputChange}
-                                                className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                                            />
-                                        </div>
-                                    </div>
-                                    
-                                    <button
-                                        onClick={runSimulation}
-                                        disabled={loading}
-                                        className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                                    >
-                                        {loading ? 'Calculating...' : 'Run Simulation'}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Results Panel */}
-                        <div className="lg:col-span-8">
-                            <div className="bg-white rounded-xl shadow p-6 mb-6">
-                                <h2 className="text-lg font-semibold mb-4">Results</h2>
-                                
-                                {results ? (
-                                    <div className="space-y-6">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                                                <div className="text-sm text-slate-600">Ending Balance</div>
-                                                <div className="text-2xl font-bold text-green-700">
-                                                    {formatCurrency(results.endingBalance)}
-                                                </div>
-                                            </div>
-                                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                                <div className="text-sm text-slate-600">Success Probability</div>
-                                                <div className="text-2xl font-bold text-blue-700">
-                                                    {results.successRate}%
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="p-4 bg-slate-50 rounded-lg">
-                                            <h3 className="font-medium mb-2">Analysis</h3>
-                                            <p className="text-slate-600">
-                                                With a starting balance of {formatCurrency(inputs.initialBalance)} and 
-                                                annual withdrawals of {formatCurrency(inputs.annualWithdrawal)} for {inputs.years} years,
-                                                your ending balance would be approximately {formatCurrency(results.endingBalance)}.
-                                            </p>
-                                            {results.endingBalance === 0 && (
-                                                <p className="mt-2 text-red-600 font-medium">
-                                                    Warning: This scenario results in portfolio depletion.
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-8 text-slate-500">
-                                        {loading ? 'Running simulation...' : 'Click "Run Simulation" to see results'}
-                                    </div>
-                                )}
-                            </div>
-                            
-                            {/* Chart Placeholder */}
-                            <div className="bg-white rounded-xl shadow p-6">
-                                <h3 className="text-lg font-semibold mb-4">Projection Chart</h3>
-                                <div className="h-64 flex items-center justify-center bg-slate-50 rounded-lg">
-                                    {typeof RechartsLib.LineChart === 'function' ? (
-                                        <div className="text-center">
-                                            <p className="text-slate-600 mb-2">Recharts is loaded!</p>
-                                            <p className="text-sm text-slate-500">Full chart functionality available</p>
-                                        </div>
-                                    ) : (
-                                        <div className="text-center">
-                                            <p className="text-slate-600 mb-2">Chart visualization</p>
-                                            <p className="text-sm text-slate-500">Recharts not fully loaded for chart display</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                    <div>
+                      <h1 className="text-3xl font-bold text-slate-800">Sequencing Risk Calculator</h1>
+                      <p className="text-slate-500">Monte Carlo Simulation for Retirement Planning</p>
                     </div>
+                  </div>
                 </div>
-            </div>
-        );
-    }
 
-    // Render the app
-    console.log('Rendering Sequencing Calculator...');
-    ReactDOM.render(
-        <ErrorBoundary>
-            <SimpleSequencingCalculator />
-        </ErrorBoundary>,
-        document.getElementById('root')
-    );
-</script>
+                {/* Inputs Column */}
+                <div className="lg:col-span-4 space-y-6">
+                  <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <h2 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                      <RefreshCwIcon className="w-5 h-5 text-blue-600" />
+                      Parameters
+                    </h2>
+
+                    <div className="space-y-5">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Starting Balance</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-slate-400">$</span>
+                          <input
+                            type="number"
+                            name="initialBalance"
+                            value={inputs.initialBalance}
+                            onChange={handleInputChange}
+                            className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Annual Withdrawal (Year 1)</label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2.5 text-slate-400">$</span>
+                          <input
+                            type="number"
+                            name="annualWithdrawal"
+                            value={inputs.annualWithdrawal}
+                            onChange={handleInputChange}
+                            className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          Withdrawal Rate: {((inputs.annualWithdrawal / inputs.initialBalance) * 100).toFixed(2)}%
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Avg Return (%)</label>
+                          <input
+                            type="number"
+                            name="expectedReturn"
+                            value={inputs.expectedReturn}
+                            onChange={handleInputChange}
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Volatility (%)</label>
+                          <input
+                            type="number"
+                            name="volatility"
+                            value={inputs.volatility}
+                            onChange={handleInputChange}
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Duration (Years)</label>
+                          <input
+                            type="number"
+                            name="years"
+                            value={inputs.years}
+                            onChange={handleInputChange}
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Inflation (%)</label>
+                          <input
+                            type="number"
+                            name="inflation"
+                            value={inputs.inflation}
+                            onChange={handleInputChange}
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Withdrawal Timing</label>
+                        <div className="relative">
+                          <ClockIcon className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                          <select
+                            name="withdrawalTiming"
+                            value={inputs.withdrawalTiming}
+                            onChange={handleTimingChange}
+                            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                          >
+                            <option value="end">End of Year (Standard)</option>
+                            <option value="start">Start of Year (Conservative)</option>
+                          </select>
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          "Start of Year" reduces compound growth because money is removed before it can grow.
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={runSimulation}
+                        disabled={isSimulating}
+                        className={`w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-all flex justify-center items-center gap-2 ${isSimulating ? 'opacity-75 cursor-not-allowed' : ''}`}
+                      >
+                        {isSimulating ? 'Calculating...' : 'Run New Simulation'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-slate-700">
+                    <h3 className="font-semibold text-blue-800 flex items-center gap-2 mb-2">
+                      <InfoIcon className="w-4 h-4" />
+                      What is Sequencing Risk?
+                    </h3>
+                    <p>
+                      It's the risk that the timing of withdrawals will damage your portfolio. Even if your average return is 7%, a 20% crash in year 1 while withdrawing money hurts far more than a crash in year 30.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Results Column */}
+                <div className="lg:col-span-8 space-y-6">
+                  
+                  {/* Top Level Stats */}
+                  {results && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className={`p-6 rounded-xl border shadow-sm ${results.successRate > 85 ? 'bg-green-50 border-green-200' : results.successRate > 50 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
+                        <div className="text-sm font-medium text-slate-500 mb-1">Probability of Success</div>
+                        <div className={`text-3xl font-bold ${results.successRate > 85 ? 'text-green-700' : results.successRate > 50 ? 'text-amber-700' : 'text-red-700'}`}>
+                          {formatPercent(results.successRate)}
+                        </div>
+                        <div className="text-xs mt-2 text-slate-600">
+                          {results.failures} failures in {results.totalSimulations} scenarios
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="text-sm font-medium text-slate-500 mb-1">Median Ending Balance</div>
+                        <div className="text-3xl font-bold text-slate-800">
+                          {formatCurrency(results.medianEndingBalance)}
+                        </div>
+                        <div className="text-xs mt-2 text-slate-400">
+                          50th percentile outcome
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="text-sm font-medium text-slate-500 mb-1">Worst Case (10th %)</div>
+                        <div className="text-3xl font-bold text-slate-800">
+                          {formatCurrency(results.worstCase)}
+                        </div>
+                        <div className="text-xs mt-2 text-slate-400">
+                          90% of outcomes were better than this
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Main Chart */}
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-[500px] flex flex-col">
+                    <h3 className="text-lg font-semibold mb-2 text-slate-800 flex justify-between items-center">
+                      <span>Monte Carlo Projections</span>
+                      <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-1 rounded">500 Simulations</span>
+                    </h3>
+                    
+                    {results ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={results.chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                          <XAxis 
+                            dataKey="year" 
+                            type="number" 
+                            domain={['dataMin', 'dataMax']}
+                            minTickGap={30}
+                            label={{ value: 'Years in Retirement', position: 'insideBottom', offset: -10 }} 
+                            stroke="#94a3b8"
+                            tick={{fill: '#64748b'}}
+                          />
+                          <YAxis 
+                            tickFormatter={(val) => `$${val / 1000}k`}
+                            stroke="#94a3b8"
+                            tick={{fill: '#64748b'}}
+                          />
+                          <Tooltip 
+                            formatter={(value) => formatCurrency(value)}
+                            labelFormatter={(label) => `Year ${label}`}
+                            contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                          />
+                          
+                          {/* The Cone of Uncertainty (Area) */}
+                          <Area type="monotone" dataKey="p90" stackId="1" stroke="none" fill="#dbeafe" fillOpacity={0.4} name="Top 10% Range" />
+                          <Area type="monotone" dataKey="p10" stackId="1" stroke="none" fill="#fff" fillOpacity={1} name="Bottom 10% (Hidden)" />
+
+                          {/* Sample Spaghetti Lines */}
+                          {Array.from({ length: 25 }).map((_, idx) => (
+                            <Line 
+                              key={idx}
+                              type="monotone"
+                              dataKey={`sim${idx}`}
+                              stroke="#94a3b8"
+                              strokeWidth={1}
+                              strokeOpacity={0.2}
+                              dot={false}
+                              isAnimationActive={false}
+                              name={`Scenario ${idx + 1}`}
+                            />
+                          ))}
+
+                          {/* Statistical Lines */}
+                          <Line type="monotone" dataKey="p90" stroke="#2563eb" strokeWidth={2} dot={false} name="90th Percentile" strokeDasharray="5 5" />
+                          <Line type="monotone" dataKey="median" stroke="#0f172a" strokeWidth={3} dot={false} name="Median" />
+                          <Line type="monotone" dataKey="p10" stroke="#ef4444" strokeWidth={2} dot={false} name="10th Percentile" strokeDasharray="5 5" />
+
+                          <ReferenceLine y={0} stroke="red" strokeDasharray="3 3" />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-slate-400">
+                        Loading Simulation...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Analysis Text */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-red-100 rounded-lg">
+                            <TrendingDownIcon className="w-5 h-5 text-red-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-slate-800">The Danger Zone</h4>
+                            <p className="text-sm text-slate-600 mt-1">
+                              In the worst 10% of cases, your portfolio balance at year {inputs.years} drops to <b>{results && formatCurrency(results.worstCase)}</b>. 
+                              {results && results.worstCase === 0 && (
+                                <span className="block mt-1 text-red-600 font-medium">This indicates a high risk of total depletion.</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                     </div>
+
+                     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-green-100 rounded-lg">
+                            <TrendingUpIcon className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-slate-800">Upside Potential</h4>
+                            <p className="text-sm text-slate-600 mt-1">
+                              If markets perform well (90th percentile), your ending balance could grow to <b>{results && formatCurrency(results.bestCase)}</b>, significantly outpacing inflation.
+                            </p>
+                          </div>
+                        </div>
+                     </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Initialize React Application
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
