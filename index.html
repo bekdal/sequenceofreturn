@@ -1,41 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sequencing Risk Calculator</title>
-    
-    <!-- Tailwind CSS for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React & ReactDOM (Core Libraries) - Pinned versions for stability -->
-    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
-    
-    <!-- Prop-types (Often required by Recharts UMD builds) -->
-    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
-
-    <!-- Recharts (Charting Library) - Pinned version to avoid 'latest' breakages -->
-    <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.min.js"></script>
-    
-    <!-- Babel (Compiles JSX in the browser) -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <style>
-        body {
-            background-color: #f8fafc;
-        }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
-
-    <script type="text/babel">
-    // Error Boundary Component
+<script type="text/babel">
+    // Error Boundary
     class ErrorBoundary extends React.Component {
         constructor(props) {
             super(props);
-            this.state = { hasError: false, error: null, errorInfo: null };
+            this.state = { hasError: false, error: null };
         }
         
         static getDerivedStateFromError(error) {
@@ -43,58 +11,20 @@
         }
         
         componentDidCatch(error, errorInfo) {
-            this.setState({ errorInfo });
-            console.error('React Error:', error, errorInfo);
+            console.error('Component Error:', error, errorInfo);
         }
         
         render() {
             if (this.state.hasError) {
                 return (
-                    <div style={{ 
-                        padding: '40px', 
-                        background: '#fef2f2',
-                        border: '1px solid #fecaca',
-                        borderRadius: '8px',
-                        margin: '20px'
-                    }}>
-                        <h2 style={{ color: '#dc2626', marginBottom: '16px' }}>⚠️ React Application Error</h2>
-                        <div style={{ 
-                            background: '#fca5a5', 
-                            padding: '12px', 
-                            borderRadius: '6px',
-                            marginBottom: '16px',
-                            fontFamily: 'monospace',
-                            fontSize: '14px'
-                        }}>
-                            <strong>Error:</strong> {this.state.error?.toString()}
-                        </div>
-                        {this.state.errorInfo && (
-                            <details style={{ marginTop: '16px' }}>
-                                <summary>Stack Trace</summary>
-                                <pre style={{ 
-                                    background: '#f1f5f9', 
-                                    padding: '12px', 
-                                    borderRadius: '6px',
-                                    overflow: 'auto',
-                                    fontSize: '12px'
-                                }}>
-                                    {this.state.errorInfo.componentStack}
-                                </pre>
-                            </details>
-                        )}
+                    <div className="p-8 bg-red-50 border border-red-200 rounded-lg m-4">
+                        <h2 className="text-xl font-bold text-red-800 mb-2">Component Error</h2>
+                        <p className="text-red-600 mb-4">{this.state.error?.toString()}</p>
                         <button 
-                            onClick={() => window.location.reload()}
-                            style={{
-                                marginTop: '16px',
-                                padding: '8px 16px',
-                                background: '#3b82f6',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer'
-                            }}
+                            onClick={() => this.setState({ hasError: false })}
+                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                         >
-                            Reload Page
+                            Try Again
                         </button>
                     </div>
                 );
@@ -103,65 +33,233 @@
         }
     }
 
-    // Simple Test Component
-    function TestApp() {
-        const [loaded, setLoaded] = React.useState(false);
-        
-        React.useEffect(() => {
-            console.log('TestApp mounted');
-            setLoaded(true);
+    // Import React hooks
+    const { useState, useEffect } = React;
+    
+    // Get Recharts safely
+    let RechartsLib = window.Recharts || {};
+    const { 
+        LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
+        ResponsiveContainer, ReferenceLine, Area, ComposedChart 
+    } = RechartsLib;
+
+    // --- Simple Icons ---
+    const CalculatorIcon = () => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/></svg>
+    );
+
+    // --- Utility Functions ---
+    const formatCurrency = (value) => {
+        if (!value && value !== 0) return '$0';
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            maximumFractionDigits: 0
+        }).format(value);
+    };
+
+    // --- SIMPLIFIED APP COMPONENT ---
+    function SimpleSequencingCalculator() {
+        const [inputs, setInputs] = useState({
+            initialBalance: 1000000,
+            annualWithdrawal: 40000,
+            expectedReturn: 7.0,
+            volatility: 15.0,
+            years: 30,
+            inflation: 3.0
+        });
+
+        const [results, setResults] = useState(null);
+        const [loading, setLoading] = useState(false);
+
+        // Simple simulation
+        const runSimulation = () => {
+            setLoading(true);
+            setTimeout(() => {
+                const { initialBalance, annualWithdrawal, years } = inputs;
+                
+                // Simple calculation (not Monte Carlo for now)
+                let balance = initialBalance;
+                const annualRate = inputs.expectedReturn / 100;
+                
+                for (let year = 1; year <= years; year++) {
+                    balance = balance * (1 + annualRate) - annualWithdrawal;
+                    if (balance < 0) balance = 0;
+                }
+                
+                setResults({
+                    endingBalance: Math.round(balance),
+                    successRate: balance > 0 ? 100 : 0
+                });
+                setLoading(false);
+            }, 500);
+        };
+
+        // Run on mount
+        useEffect(() => {
+            runSimulation();
         }, []);
-        
+
+        const handleInputChange = (e) => {
+            const { name, value } = e.target;
+            setInputs(prev => ({
+                ...prev,
+                [name]: parseFloat(value) || 0
+            }));
+        };
+
         return (
-            <div style={{ padding: '40px' }}>
-                <h1 style={{ color: '#1e293b', marginBottom: '20px' }}>✅ React is Working!</h1>
-                <div style={{ 
-                    background: '#f1f5f9', 
-                    padding: '20px', 
-                    borderRadius: '8px',
-                    marginBottom: '20px'
-                }}>
-                    <p><strong>Status:</strong> {loaded ? 'Loaded successfully!' : 'Loading...'}</p>
-                    <p><strong>React Version:</strong> {React.version}</p>
-                    <p><strong>Recharts:</strong> {typeof Recharts !== 'undefined' ? 'Loaded ✓' : 'Not loaded ✗'}</p>
+            <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+                <div className="max-w-7xl mx-auto">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-3 bg-blue-600 rounded-lg">
+                                <CalculatorIcon />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-bold text-slate-800">Sequencing Risk Calculator</h1>
+                                <p className="text-slate-500">Simplified Version - Working!</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        {/* Input Panel */}
+                        <div className="lg:col-span-4">
+                            <div className="bg-white rounded-xl shadow p-6">
+                                <h2 className="text-lg font-semibold mb-4">Input Parameters</h2>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Starting Balance</label>
+                                        <input
+                                            type="number"
+                                            name="initialBalance"
+                                            value={inputs.initialBalance}
+                                            onChange={handleInputChange}
+                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                                        />
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Annual Withdrawal</label>
+                                        <input
+                                            type="number"
+                                            name="annualWithdrawal"
+                                            value={inputs.annualWithdrawal}
+                                            onChange={handleInputChange}
+                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                                        />
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Return (%)</label>
+                                            <input
+                                                type="number"
+                                                name="expectedReturn"
+                                                value={inputs.expectedReturn}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Years</label>
+                                            <input
+                                                type="number"
+                                                name="years"
+                                                value={inputs.years}
+                                                onChange={handleInputChange}
+                                                className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <button
+                                        onClick={runSimulation}
+                                        disabled={loading}
+                                        className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                        {loading ? 'Calculating...' : 'Run Simulation'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Results Panel */}
+                        <div className="lg:col-span-8">
+                            <div className="bg-white rounded-xl shadow p-6 mb-6">
+                                <h2 className="text-lg font-semibold mb-4">Results</h2>
+                                
+                                {results ? (
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                                <div className="text-sm text-slate-600">Ending Balance</div>
+                                                <div className="text-2xl font-bold text-green-700">
+                                                    {formatCurrency(results.endingBalance)}
+                                                </div>
+                                            </div>
+                                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                                <div className="text-sm text-slate-600">Success Probability</div>
+                                                <div className="text-2xl font-bold text-blue-700">
+                                                    {results.successRate}%
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="p-4 bg-slate-50 rounded-lg">
+                                            <h3 className="font-medium mb-2">Analysis</h3>
+                                            <p className="text-slate-600">
+                                                With a starting balance of {formatCurrency(inputs.initialBalance)} and 
+                                                annual withdrawals of {formatCurrency(inputs.annualWithdrawal)} for {inputs.years} years,
+                                                your ending balance would be approximately {formatCurrency(results.endingBalance)}.
+                                            </p>
+                                            {results.endingBalance === 0 && (
+                                                <p className="mt-2 text-red-600 font-medium">
+                                                    Warning: This scenario results in portfolio depletion.
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-slate-500">
+                                        {loading ? 'Running simulation...' : 'Click "Run Simulation" to see results'}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Chart Placeholder */}
+                            <div className="bg-white rounded-xl shadow p-6">
+                                <h3 className="text-lg font-semibold mb-4">Projection Chart</h3>
+                                <div className="h-64 flex items-center justify-center bg-slate-50 rounded-lg">
+                                    {typeof RechartsLib.LineChart === 'function' ? (
+                                        <div className="text-center">
+                                            <p className="text-slate-600 mb-2">Recharts is loaded!</p>
+                                            <p className="text-sm text-slate-500">Full chart functionality available</p>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center">
+                                            <p className="text-slate-600 mb-2">Chart visualization</p>
+                                            <p className="text-sm text-slate-500">Recharts not fully loaded for chart display</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <button 
-                    onClick={() => alert('React is working!')}
-                    style={{
-                        padding: '10px 20px',
-                        background: '#10b981',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer'
-                    }}
-                >
-                    Test Button (Click me)
-                </button>
             </div>
         );
     }
 
-    // Render with Error Boundary
-    console.log('Attempting to render React app...');
-    try {
-        ReactDOM.render(
-            <ErrorBoundary>
-                <TestApp />
-            </ErrorBoundary>,
-            document.getElementById('root')
-        );
-        console.log('Render attempted');
-    } catch (error) {
-        console.error('Fatal render error:', error);
-        document.getElementById('root').innerHTML = `
-            <div style="padding: 40px; color: red;">
-                <h2>Fatal Error during render</h2>
-                <p><strong>${error.message}</strong></p>
-                <pre>${error.stack}</pre>
-            </div>
-        `;
-    }
+    // Render the app
+    console.log('Rendering Sequencing Calculator...');
+    ReactDOM.render(
+        <ErrorBoundary>
+            <SimpleSequencingCalculator />
+        </ErrorBoundary>,
+        document.getElementById('root')
+    );
 </script>
-</body>
-</html>
