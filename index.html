@@ -111,7 +111,7 @@
             volatility: 15.0,
             years: 30,
             inflation: 3.0,
-            numSimulations: 500,
+            numSimulations: 500, // Default is 500
             withdrawalTiming: 'end'
           });
 
@@ -146,8 +146,9 @@
               const allPaths = [];
               const finalBalances = [];
 
-              // Run N scenarios (reduced for demo)
-              const simCount = Math.min(numSimulations, 100); // Reduced for performance
+              // Run N scenarios (Using the full numSimulations)
+              const simCount = numSimulations; 
+              
               for (let sim = 0; sim < simCount; sim++) {
                 let currentBalance = initialBalance;
                 let currentWithdrawal = annualWithdrawal; 
@@ -194,7 +195,7 @@
                   p90: balancesAtYear[Math.floor(simCount * 0.9)],
                 };
 
-                // Add individual lines
+                // Add individual lines (Still limiting spaghetti lines to avoid UI clutter)
                 for(let i = 0; i < Math.min(10, simCount); i++) {
                    if(allPaths[i] && allPaths[i][year]) {
                        dataPoint[`sim${i}`] = allPaths[i][year].balance;
