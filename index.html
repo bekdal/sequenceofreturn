@@ -12,13 +12,14 @@
     <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
     
-    <!-- Prop-types -->
+    <!-- Prop-types (Required by Recharts UMD) -->
     <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
 
-    <!-- Recharts from jsDelivr (more reliable) -->
-    <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.min.js"></script>
+    <!-- Recharts (Charting Library) -->
+    <!-- Note: We use the unminified 'Recharts.js' because 'Recharts.min.js' is often missing from the NPM build, causing MIME type errors -->
+    <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.js"></script>
     
-    <!-- Babel -->
+    <!-- Babel (Compiles JSX in browser) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
@@ -31,43 +32,28 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // Debug
+        // Debug checks
         console.log('React loaded:', typeof React !== 'undefined');
         console.log('Recharts loaded:', typeof window.Recharts !== 'undefined');
         
         const { useState, useEffect } = React;
         
-        // Get Recharts from window object safely
+        // Robust Recharts loading
         let RechartsLib = window.Recharts;
         if (!RechartsLib) {
-            console.error('Recharts not found on window');
-            // Create minimal fallbacks
+            console.error('Recharts not found on window object. CDN load failed.');
+            // Fallback to prevent white screen crash
             RechartsLib = {
-                LineChart: ({ children, data }) => React.createElement('div', { 
-                    style: { 
-                        padding: '20px', 
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px'
-                    } 
-                }, 'Recharts not loaded. Check console.'),
+                LineChart: ({ children }) => <div className="p-4 bg-red-50 text-red-600 border border-red-200 rounded">Chart Library Failed to Load</div>,
                 Line: () => null,
                 XAxis: () => null,
                 YAxis: () => null,
                 CartesianGrid: () => null,
                 Tooltip: () => null,
-                ResponsiveContainer: ({ children, width, height }) => 
-                    React.createElement('div', { style: { width, height } }, children),
+                ResponsiveContainer: ({ children, height }) => <div style={{ height }}>{children}</div>,
                 ReferenceLine: () => null,
                 Area: () => null,
-                ComposedChart: ({ children, data }) => React.createElement('div', { 
-                    style: { 
-                        padding: '20px', 
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px'
-                    } 
-                }, 'Chart: Recharts failed to load')
+                ComposedChart: ({ children }) => <div className="p-4 bg-red-50 text-red-600 border border-red-200 rounded">Chart Library Failed to Load</div>
             };
         }
         
